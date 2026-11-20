@@ -263,9 +263,18 @@ private:
 
     void lost_piece(tr_piece_index_t const piece)
     {
-        if (mediator_.client_wants_piece(piece))
+        if (!mediator_.client_wants_piece(piece))
         {
-            got_bad_piece(piece);
+            return;
+        }
+
+        got_bad_piece(piece);
+
+        // Peers were told that we have this piece, so get it back before starting on new ones.
+        if (auto const iter = find_by_piece(piece); iter != std::end(candidates_))
+        {
+            iter->priority = TR_PRI_HIGH;
+            std::sort(std::begin(candidates_), std::end(candidates_));
         }
     }
 

@@ -790,6 +790,54 @@ TEST_F(PeerMgrWishlistTest, lostPieceIsRequestedAgain)
     EXPECT_EQ(200U, spans[0].end);
 }
 
+TEST_F(PeerMgrWishlistTest, lostPieceIsRequestedFirst)
+{
+    auto const get_spans = [this]()
+    {
+        auto mediator = MockMediator{ *this };
+
+        // setup: three pieces, we want all of them and have only the middle one
+        mediator.block_span_[0] = { 0, 100 };
+        mediator.block_span_[1] = { 100, 200 };
+        mediator.block_span_[2] = { 200, 300 };
+        for (tr_piece_index_t i = 0; i < mediator.piece_count(); ++i)
+        {
+            mediator.client_wants_piece_.insert(i);
+            mediator.piece_replication_[i] = 1;
+        }
+        mediator.client_has_piece_.insert(1);
+        for (tr_block_index_t block = 100; block < 200; ++block)
+        {
+            mediator.client_has_block_.insert(block);
+        }
+
+        // allow the wishlist to build its cache
+        auto wishlist = Wishlist{ mediator };
+
+        // the middle piece turned out to be corrupt on disk
+        mediator.client_has_piece_.erase(1);
+        for (tr_block_index_t block = 100; block < 200; ++block)
+        {
+            mediator.client_has_block_.erase(block);
+        }
+        lost_piece_.emit(nullptr, 1);
+
+        return wishlist.next(100, PeerHasAllPieces);
+    };
+
+    // NB: when all other things are equal in the wishlist, pieces are
+    // picked at random so this test -could- pass even if there's a bug.
+    // So test several times to shake out any randomness
+    static auto constexpr NumRuns = 200;
+    for (int run = 0; run < NumRuns; ++run)
+    {
+        auto const spans = get_spans();
+        ASSERT_EQ(1U, std::size(spans));
+        EXPECT_EQ(100U, spans[0].begin);
+        EXPECT_EQ(200U, spans[0].end);
+    }
+}
+
 TEST_F(PeerMgrWishlistTest, gotBadPieceResetsPiece)
 {
     auto const get_spans = [this](size_t n_wanted)
