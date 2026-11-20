@@ -59,6 +59,7 @@ namespace libtransmission::test
 
 class RenameTest_multifileTorrent_Test;
 class RenameTest_singleFilenameTorrent_Test;
+class TorrentTest_pieceThatFailsItsLazyCheckIsWantedAgain_Test;
 
 } // namespace libtransmission::test
 
@@ -93,6 +94,7 @@ struct tr_torrent
     private:
         friend class libtransmission::test::RenameTest_multifileTorrent_Test;
         friend class libtransmission::test::RenameTest_singleFilenameTorrent_Test;
+        friend class libtransmission::test::TorrentTest_pieceThatFailsItsLazyCheckIsWantedAgain_Test;
         friend struct tr_torrent;
 
         explicit ResumeHelper(tr_torrent& tor)
@@ -1013,6 +1015,7 @@ struct tr_torrent
 
     libtransmission::SimpleObservable<tr_torrent*, bool /*because_downloaded_last_piece*/> done_;
     libtransmission::SimpleObservable<tr_torrent*, tr_piece_index_t> got_bad_piece_;
+    libtransmission::SimpleObservable<tr_torrent*, tr_piece_index_t> lost_piece_;
     libtransmission::SimpleObservable<tr_torrent*, tr_piece_index_t> piece_completed_;
     libtransmission::SimpleObservable<tr_torrent*> doomed_;
     libtransmission::SimpleObservable<tr_torrent*> got_metainfo_;

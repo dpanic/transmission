@@ -268,8 +268,13 @@ int tr_ioWrite(tr_torrent& tor, tr_block_info::Location const& loc, size_t const
     return error.code();
 }
 
+std::optional<tr_sha1_digest_t> tr_ioHashPiece(tr_torrent const& tor, tr_piece_index_t const piece)
+{
+    return recalculate_hash(tor, piece);
+}
+
 bool tr_ioTestPiece(tr_torrent const& tor, tr_piece_index_t const piece)
 {
-    auto const hash = recalculate_hash(tor, piece);
+    auto const hash = tr_ioHashPiece(tor, piece);
     return hash && *hash == tor.piece_hash(piece);
 }

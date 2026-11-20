@@ -104,6 +104,12 @@ protected:
             return parent_.got_bad_piece_.observe(std::move(observer));
         }
 
+        [[nodiscard]] libtransmission::ObserverTag observe_lost_piece(
+            libtransmission::SimpleObservable<tr_torrent*, tr_piece_index_t>::Observer observer) override
+        {
+            return parent_.lost_piece_.observe(std::move(observer));
+        }
+
         [[nodiscard]] libtransmission::ObserverTag observe_got_bitfield(
             libtransmission::SimpleObservable<tr_torrent*, tr_bitfield const&>::Observer observer) override
         {
@@ -181,6 +187,7 @@ protected:
     libtransmission::SimpleObservable<tr_torrent*, tr_file_index_t const*, tr_file_index_t, bool> files_wanted_changed_;
     libtransmission::SimpleObservable<tr_torrent*, tr_bitfield const&, tr_bitfield const&> peer_disconnect_;
     libtransmission::SimpleObservable<tr_torrent*, tr_piece_index_t> got_bad_piece_;
+    libtransmission::SimpleObservable<tr_torrent*, tr_piece_index_t> lost_piece_;
     libtransmission::SimpleObservable<tr_torrent*, tr_bitfield const&> got_bitfield_;
     libtransmission::SimpleObservable<tr_torrent*, tr_block_index_t> got_block_;
     libtransmission::SimpleObservable<tr_torrent*, tr_bitfield const&> got_choke_;
@@ -742,6 +749,45 @@ TEST_F(PeerMgrWishlistTest, peerDisconnectDecrementsReplication)
         EXPECT_EQ(100U, requested.count(0, 100));
         EXPECT_EQ(50U, requested.count(100, 300));
     }
+}
+
+TEST_F(PeerMgrWishlistTest, lostPieceIsRequestedAgain)
+{
+    auto mediator = MockMediator{ *this };
+
+    // setup: three pieces, and we have all of them
+    mediator.block_span_[0] = { 0, 100 };
+    mediator.block_span_[1] = { 100, 200 };
+    mediator.block_span_[2] = { 200, 300 };
+    for (tr_piece_index_t i = 0; i < mediator.piece_count(); ++i)
+    {
+        mediator.client_wants_piece_.insert(i);
+        mediator.client_has_piece_.insert(i);
+        mediator.piece_replication_[i] = 1;
+    }
+    for (tr_block_index_t block = 0; block < 300; ++block)
+    {
+        mediator.client_has_block_.insert(block);
+    }
+
+    // allow the wishlist to build its cache
+    auto wishlist = Wishlist{ mediator };
+
+    // there is nothing to download
+    EXPECT_TRUE(std::empty(wishlist.next(1000, PeerHasAllPieces)));
+
+    // piece 1 turned out to be corrupt on disk, so it needs to be downloaded again
+    mediator.client_has_piece_.erase(1);
+    for (auto [block, end] = mediator.block_span_[1]; block < end; ++block)
+    {
+        mediator.client_has_block_.erase(block);
+    }
+    lost_piece_.emit(nullptr, 1);
+
+    auto const spans = wishlist.next(1000, PeerHasAllPieces);
+    ASSERT_EQ(1U, std::size(spans));
+    EXPECT_EQ(100U, spans[0].begin);
+    EXPECT_EQ(200U, spans[0].end);
 }
 
 TEST_F(PeerMgrWishlistTest, gotBadPieceResetsPiece)

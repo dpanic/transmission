@@ -261,6 +261,14 @@ private:
 
     // ---
 
+    void lost_piece(tr_piece_index_t const piece)
+    {
+        if (mediator_.client_wants_piece(piece))
+        {
+            got_bad_piece(piece);
+        }
+    }
+
     void got_bad_piece(tr_piece_index_t const piece)
     {
         auto iter = find_by_piece(piece);
@@ -523,7 +531,7 @@ private:
 
     CandidateVec candidates_;
 
-    std::array<libtransmission::ObserverTag, 15U> const tags_;
+    std::array<libtransmission::ObserverTag, 16U> const tags_;
 
     tr_salt_shaker<tr_piece_index_t> salter_ = {};
 
@@ -540,6 +548,8 @@ Wishlist::Impl::Impl(Mediator& mediator_in)
                                               { peer_disconnect(b, ar); }),
           // unrequested
           mediator_in.observe_got_bad_piece([this](tr_torrent*, tr_piece_index_t p) { got_bad_piece(p); }),
+          // candidates
+          mediator_in.observe_lost_piece([this](tr_torrent*, tr_piece_index_t p) { lost_piece(p); }),
           // replication
           mediator_in.observe_got_bitfield([this](tr_torrent*, tr_bitfield const& b) { inc_replication_bitfield(b); }),
           // unrequested

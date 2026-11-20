@@ -11,6 +11,7 @@
 
 #include <cstddef> // size_t
 #include <cstdint> // uint8_t, uint32_t
+#include <optional>
 
 #include "libtransmission/transmission.h"
 
@@ -34,6 +35,12 @@ struct tr_torrent;
  * @return 0 on success, or an errno value on failure.
  */
 [[nodiscard]] int tr_ioWrite(tr_torrent& tor, tr_block_info::Location const& loc, size_t len, uint8_t const* writeme);
+
+/**
+ * @brief Calculate the SHA1 checksum of the piece's local data.
+ * @return the checksum, or an empty optional if the piece could not be read.
+ */
+[[nodiscard]] std::optional<tr_sha1_digest_t> tr_ioHashPiece(tr_torrent const& tor, tr_piece_index_t piece);
 
 /**
  * @brief Test to see if the piece matches its metainfo's SHA1 checksum.
